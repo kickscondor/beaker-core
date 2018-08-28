@@ -326,11 +326,15 @@ exports.electronHandler = async function (request, respond) {
           dataStream = dataStream.pipe(replace(
             /<!-- *#include +file="([^"]+)" *-->/g,
             (match, incpath) => {
-              var datread = deasync(pda.readFile)
-              if (manifest && manifest.web_root) {
-                incpath = join(manifest.web_root, incpath)
+              try {
+                var datread = deasync(pda.readFile)
+                if (manifest && manifest.web_root) {
+                  incpath = join(manifest.web_root, incpath)
+                }
+                return datread(archive, incpath)
+              } catch (e) {
+                return `<div class="error">${e}</div>`
               }
-              return datread(archive, incpath)
             }))
         }
         respond({statusCode, headers, data: dataStream})
