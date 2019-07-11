@@ -2,9 +2,11 @@ const {join} = require('path')
 const parseDatUrl = require('parse-dat-url')
 const parseRange = require('range-parser')
 const once = require('once')
+const deasync = require('deasync')
 const debug = require('../lib/debug-logger').debugLogger('dat-serve')
 const intoStream = require('into-stream')
 const toZipStream = require('hyperdrive-to-zip-stream')
+const replace = require('replacestream');
 const slugify = require('slugify')
 
 const datDns = require('./dns')
@@ -346,6 +348,21 @@ exports.electronHandler = async function (request, respond) {
         dataStream.destroy() // stop reading data
         respond({statusCode: 204, headers, data: intoStream('')})
       } else {
+        if (mimeType.startsWith("text/html")) {
+          dataStream = dataStream.pipe(replace(
+            /<!-- *#include +file="([^"]+)" *-->/g,
+            (match, incpath) => {
+              try {
+                var datread = deasync(pda.readFile)
+                if (manifest && manifest.web_root) {
+                  incpath = join(manifest.web_root, incpath)
+                }
+                return datread(archive, incpath)
+              } catch (e) {
+                return `<div class="error">${e}</div>`
+              }
+            }))
+        }
         respond({statusCode, headers, data: dataStream})
       }
     }))
